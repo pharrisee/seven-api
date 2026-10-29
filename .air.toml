@@ -1,0 +1,11 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/main ."
+bin = "./tmp/main"
+args_bin = ["-addr", ":9999"]
+delay = 1000
+include_ext = ["go", "html", "css", "js"]
+exclude_dir = ["tmp", "vendor"]
+stop_on_error = true
