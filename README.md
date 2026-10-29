@@ -5,8 +5,9 @@ specs in a RapiDoc-style viewer, with authentication and a working **Try it out*
 panel.
 
 The UI is server-rendered with [gomponents](https://maragu.dev/gomponents) and
-uses a vendored copy of [htmx](https://htmx.org/) for partial updates. There are
-no JS frameworks, no CDN assets and no code generators.
+uses a vendored copy of [htmx](https://htmx.org/) 2.0.11 (0BSD, see
+`web/htmx.LICENSE`) for partial updates. There are no JS frameworks, no CDN
+assets and no code generators.
 
 ## How it works
 
