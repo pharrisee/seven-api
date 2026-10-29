@@ -511,6 +511,18 @@ func (w *responseLog) Write(b []byte) (int, error) {
 	return n, err
 }
 
+// sanitizeLog strips control characters (including newlines/carriage returns)
+// from a value so it can be safely interpolated into a single log line without
+// enabling log forging.
+func sanitizeLog(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return ' '
+		}
+		return r
+	}, s)
+}
+
 // loggingHandler wraps the router and logs every request: remote address,
 // method, path (with query), status, bytes written and elapsed time.
 func loggingHandler(next http.Handler) http.Handler {
@@ -521,12 +533,12 @@ func loggingHandler(next http.Handler) http.Handler {
 		if rl.status == 0 {
 			rl.status = http.StatusOK
 		}
-		target := r.URL.Path
+		target := sanitizeLog(r.URL.Path)
 		if r.URL.RawQuery != "" {
-			target += "?" + r.URL.RawQuery
+			target += "?" + sanitizeLog(r.URL.RawQuery)
 		}
-		log.Printf("%s %s %s %s -> %d %dB in %s",
-			r.RemoteAddr, r.Method, r.Host, target,
+		log.Printf("%s %s %s %s -> %d %dB in %s", // #nosec G706 -- fields sanitized by sanitizeLog
+			sanitizeLog(r.RemoteAddr), sanitizeLog(r.Method), sanitizeLog(r.Host), target,
 			rl.status, rl.size, time.Since(start).Round(time.Millisecond))
 	})
 }

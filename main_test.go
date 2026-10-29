@@ -481,6 +481,28 @@ func TestResponseLog(t *testing.T) {
 	}
 }
 
+func TestSanitizeLog(t *testing.T) {
+	cases := map[string]string{
+		"normal path":   "normal path",
+		"with newline":  "line1\nline2",
+		"with carriage": "line1\rline2",
+		"with tab":      "a\tb",
+		"with null":     "a\x00b",
+		"with vtab":     "a\x0bb",
+		"mixed":         "GET /api/Command\nHTTP/1.1\rHost: evil",
+	}
+	expected := "normal path"
+	if got := sanitizeLog("normal path"); got != expected {
+		t.Errorf("sanitizeLog(%q) = %q, want %q", "normal path", got, expected)
+	}
+	for in := range cases {
+		got := sanitizeLog(in)
+		if strings.ContainsAny(got, "\n\r\x00\x0b") {
+			t.Errorf("sanitizeLog(%q) = %q still contains control chars", in, got)
+		}
+	}
+}
+
 func TestReloadKeepsLastGoodSpec(t *testing.T) {
 	dir := t.TempDir()
 	specPath := filepath.Join(dir, "openapi.yaml")
