@@ -82,7 +82,10 @@ For live reload during development, `.air.toml` runs the server via
   for path/query/header/cookie parameters, sends the request through the proxy,
   and shows status, timing, headers and pretty-printed JSON. Operations with
   several request media types get a selector, and the result can be copied as
-  the response body or as an equivalent cURL command.
+  the response body or as an equivalent cURL command. The 7D2D command
+  operation defaults to the read-only `help * player` command. If the browser
+  has JavaScript disabled, the form still works: it re-renders the full
+  operation page with the result inline.
 - Reload button (⟳) re-pulls the specs from the server without restarting. If
   the reload fails, the last good spec stays available.
 
