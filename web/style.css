@@ -43,6 +43,86 @@ summary:focus-visible {
   outline-offset: 2px;
 }
 
+/* ===== Skip link ===== */
+.skip-link {
+  position: absolute;
+  top: 8px;
+  left: -9999px;
+  background: #1e293b;
+  color: #f8fafc;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  z-index: 2000;
+}
+.skip-link:focus {
+  left: 8px;
+}
+
+/* ===== Top progress bar ===== */
+.progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+  pointer-events: none;
+  z-index: 2000;
+}
+.progress.active {
+  opacity: 1;
+}
+.progress-bar {
+  width: 100%;
+  height: 100%;
+  background: #3b82f6;
+  transform-origin: left;
+  animation: progress-bar 1.2s ease-in-out 0.2s infinite;
+}
+@keyframes progress-bar {
+  0% { transform: scaleX(0.2); }
+  50% { transform: scaleX(0.6); }
+  100% { transform: scaleX(0.2); }
+}
+
+/* ===== Toast ===== */
+.toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  max-width: 420px;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #e5e7eb;
+  font-size: 13px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  z-index: 2000;
+}
+.toast[hidden] {
+  display: none;
+}
+.toast-message {
+  display: block;
+  margin-bottom: 8px;
+}
+.toast .btn-ghost {
+  margin-left: 8px;
+}
+.toast-close {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  margin-left: auto;
+}
+.toast-close:hover {
+  color: #e5e7eb;
+}
+
 /* htmx's injected indicator styles are disabled via the htmx-config meta tag
    so the CSP can stay free of 'unsafe-inline'; these are the equivalents. */
 .htmx-indicator {
