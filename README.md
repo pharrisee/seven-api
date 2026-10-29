@@ -121,11 +121,14 @@ For live reload during development, `.air.toml` runs the server via
 
 ## Development
 
+Tasks are defined in `Taskfile.yml` and run with
+[Task](https://taskfile.dev/):
+
 ```bash
-make build      # build ./server
-make run        # run on 127.0.0.1:8080
-make check      # go test -race, go vet, staticcheck
-make sec        # govulncheck, gosec
+task build      # build ./server
+task run        # run on 127.0.0.1:8080
+task check      # go test -race, go vet, staticcheck
+task sec        # govulncheck, gosec
 ```
 
 The same checks run in GitHub Actions (`.github/workflows/ci.yml`). The server

@@ -1,0 +1,65 @@
+version: '3'
+
+vars:
+  BINARY: server
+  ADDR: 127.0.0.1:8080
+
+tasks:
+  default:
+    desc: Run the test, vet and staticcheck suite
+    cmds:
+      - task: check
+
+  build:
+    desc: Build the server binary
+    cmds:
+      - go build -trimpath -o {{.BINARY}} .
+
+  run:
+    desc: Run the viewer
+    cmds:
+      - go run . -addr {{.ADDR}}
+
+  test:
+    desc: Run the unit tests
+    cmds:
+      - go test ./...
+
+  race:
+    desc: Run the unit tests with the race detector
+    cmds:
+      - go test -race ./...
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  lint:
+    desc: Run go vet and staticcheck
+    deps: [vet]
+    cmds:
+      - staticcheck ./...
+
+  vuln:
+    desc: Check dependencies for known vulnerabilities
+    cmds:
+      - govulncheck ./...
+
+  sec:
+    desc: Run govulncheck and gosec
+    deps: [vuln]
+    cmds:
+      - gosec ./...
+
+  check:
+    desc: Run the race tests, vet and staticcheck
+    cmds:
+      - task: race
+      - task: lint
+
+  clean:
+    desc: Remove the built binary and Air output
+    cmds:
+      - rm -f {{.BINARY}}
+      - rm -rf tmp
