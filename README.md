@@ -129,6 +129,7 @@ task build      # build ./server
 task run        # run on 127.0.0.1:8080
 task check      # go test -race, go vet, staticcheck
 task sec        # govulncheck, gosec
+task smoke      # smoke-test a running viewer (default http://127.0.0.1:8080)
 ```
 
 The same checks run in GitHub Actions (`.github/workflows/ci.yml`). The server

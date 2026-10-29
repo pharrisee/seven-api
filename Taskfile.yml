@@ -63,3 +63,8 @@ tasks:
     cmds:
       - rm -f {{.BINARY}}
       - rm -rf tmp
+
+  smoke:
+    desc: Smoke-test a running viewer against http://127.0.0.1:8080
+    cmds:
+      - ./scripts/smoke.sh {{.ADDR}}
