@@ -101,7 +101,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              *addr,
-		Handler:           securityHeaders(mux),
+		Handler:           loggingHandler(securityHeaders(mux)),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      60 * time.Second,
@@ -487,6 +487,48 @@ func handleStatic(w http.ResponseWriter, r *http.Request) {
 	if _, err := w.Write(data); err != nil {
 		log.Printf("writing static asset: %v", err)
 	}
+}
+
+// --- Request logging ---
+
+type responseLog struct {
+	http.ResponseWriter
+	status int
+	size   int
+}
+
+func (w *responseLog) WriteHeader(code int) {
+	w.status = code
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *responseLog) Write(b []byte) (int, error) {
+	if w.status == 0 {
+		w.status = http.StatusOK
+	}
+	n, err := w.ResponseWriter.Write(b)
+	w.size += n
+	return n, err
+}
+
+// loggingHandler wraps the router and logs every request: remote address,
+// method, path (with query), status, bytes written and elapsed time.
+func loggingHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rl := &responseLog{ResponseWriter: w}
+		start := time.Now()
+		next.ServeHTTP(rl, r)
+		if rl.status == 0 {
+			rl.status = http.StatusOK
+		}
+		target := r.URL.Path
+		if r.URL.RawQuery != "" {
+			target += "?" + r.URL.RawQuery
+		}
+		log.Printf("%s %s %s %s -> %d %dB in %s",
+			r.RemoteAddr, r.Method, r.Host, target,
+			rl.status, rl.size, time.Since(start).Round(time.Millisecond))
+	})
 }
 
 // contentETag returns a short hex digest of the asset bytes for ETag matching.

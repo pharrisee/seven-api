@@ -466,6 +466,21 @@ func TestStaticCaching(t *testing.T) {
 	}
 }
 
+func TestResponseLog(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	rl := &responseLog{ResponseWriter: recorder}
+
+	rl.WriteHeader(http.StatusTeapot)
+	if rl.status != http.StatusTeapot {
+		t.Fatalf("status = %d, want %d", rl.status, http.StatusTeapot)
+	}
+
+	n, err := rl.Write([]byte("hi"))
+	if err != nil || n != 2 || rl.size != 2 {
+		t.Fatalf("Write = (%d, %v), size = %d", n, err, rl.size)
+	}
+}
+
 func TestReloadKeepsLastGoodSpec(t *testing.T) {
 	dir := t.TempDir()
 	specPath := filepath.Join(dir, "openapi.yaml")

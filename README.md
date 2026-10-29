@@ -137,4 +137,5 @@ task smoke      # smoke-test a running viewer (default http://127.0.0.1:8080)
 
 The same checks run in GitHub Actions (`.github/workflows/ci.yml`). The server
 shuts down gracefully on `SIGINT`/`SIGTERM`, giving in-flight requests up to ten
-seconds to finish.
+seconds to finish. Each request is logged to stderr as
+`<remote> <method> <host> <path> -> <status> <bytes> in <duration>`.
