@@ -229,6 +229,7 @@ func TestHandleUITryItTranslatesAuth(t *testing.T) {
 	}
 	request := httptest.NewRequest(http.MethodPost, "/ui/tryit", strings.NewReader(form.Encode()))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	request.Header.Set("HX-Request", "1")
 	request.Header.Set("X-SDTD-API-TOKENNAME", "token")
 	request.Header.Set("X-SDTD-API-SECRET", "secret")
 	request.Header.Set("X-SDTD-SESSION", "session=abc")
@@ -246,9 +247,45 @@ func TestHandleUITryItTranslatesAuth(t *testing.T) {
 	}
 
 	html := recorder.Body.String()
+	if strings.Contains(html, "<html") || strings.Contains(html, "<!doctype") {
+		t.Fatalf("HTMX request should return a fragment, not a full page:\n%s", html)
+	}
 	for _, want := range []string{`200 200 OK`, `data-copy-curl="1"`, `curl -sS -X POST`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("try-it response is missing %q", want)
+		}
+	}
+}
+
+func TestHandleUITryItNoJSFallback(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer upstream.Close()
+
+	useTestSpec(t, upstream.URL)
+
+	form := url.Values{
+		"method": {"POST"},
+		"path":   {"/api/x"},
+		"body":   {`{"a":1}`},
+	}
+	request := httptest.NewRequest(http.MethodPost, "/ui/tryit", strings.NewReader(form.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recorder := httptest.NewRecorder()
+	handleUITryIt(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+	html := recorder.Body.String()
+	if !strings.Contains(html, "<html") {
+		t.Fatalf("non-HTMX request should return a full page:\n%s", html)
+	}
+	for _, want := range []string{`200 200 OK`, `data-copy-curl="1"`, `curl -sS -X POST`} {
+		if !strings.Contains(html, want) {
+			t.Errorf("fallback page is missing %q", want)
 		}
 	}
 }

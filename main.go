@@ -748,7 +748,7 @@ func handleUITryIt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	curl := curlCommand(method, strings.TrimRight(*apiURL, "/")+finalPath, query, headers, body)
-	if r.Header.Get("HX-Request") != "1" {
+	if r.Header.Get("HX-Request") == "" {
 		// No-JavaScript fallback: render the full operation page with the
 		// result already in the try-it panel.
 		state := ui.ReadState(r)
