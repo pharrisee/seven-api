@@ -179,6 +179,77 @@
     }, 1200);
   });
 
+  // ===== Request progress and global feedback =====
+  const progress = document.getElementById('progress');
+  let progressTimer = null;
+  document.addEventListener('htmx:beforeRequest', () => {
+    clearTimeout(progressTimer);
+    progress?.classList.add('active');
+  });
+  document.addEventListener('htmx:afterRequest', () => {
+    progressTimer = setTimeout(() => progress?.classList.remove('active'), 150);
+  });
+
+  const toastEl = document.getElementById('toast');
+  let toastTimer = null;
+  let toastRetry = null;
+  function hideToast() {
+    clearTimeout(toastTimer);
+    toastTimer = null;
+    toastRetry = null;
+    toastEl?.setAttribute('hidden', '');
+  }
+  function showToast(message, retry) {
+    if (!toastEl) return;
+    toastEl.querySelector('.toast-message').textContent = message;
+    const action = toastEl.querySelector('.toast-action');
+    action.hidden = !retry;
+    toastEl.removeAttribute('hidden');
+    clearTimeout(toastTimer);
+    if (retry) {
+      toastTimer = setTimeout(hideToast, 8000);
+    }
+  }
+  toastEl?.addEventListener('click', (event) => {
+    if (event.target.closest('.toast-close')) {
+      hideToast();
+      return;
+    }
+    if (event.target.closest('.toast-action') && toastRetry) {
+      const run = toastRetry;
+      hideToast();
+      run();
+    }
+  });
+  document.addEventListener('htmx:afterSwap', hideToast);
+
+  function retryFromEvent(event) {
+    const cfg = event?.detail?.requestConfig;
+    if (!cfg || !window.htmx) return null;
+    return () => {
+      htmx.ajax(cfg.verb, cfg.path, { target: cfg.target, swap: cfg.swap });
+    };
+  }
+  document.addEventListener('htmx:responseError', (event) => {
+    const xhr = event.detail?.xhr;
+    showToast(`Request failed (${xhr?.status || '—'} ${xhr?.statusText || ''}).`, retryFromEvent(event));
+  });
+  document.addEventListener('htmx:sendError', () =>
+    showToast('Network error — is the server still running?', null));
+  document.addEventListener('htmx:timeout', () => showToast('Request timed out.', null));
+  document.addEventListener('htmx:swapError', (event) =>
+    showToast('Could not update the page.', retryFromEvent(event)));
+
+  // ===== Focus management after content swaps =====
+  document.addEventListener('htmx:afterSwap', (event) => {
+    const target = event.detail?.target;
+    const id = typeof target === 'string' ? target.replace('#', '') : target?.id;
+    if (id === 'content') {
+      const heading = document.getElementById('content-title');
+      if (heading) heading.focus({ preventScroll: true });
+    }
+  });
+
   // ===== Operation summary popover =====
   // .op-summary is visually hidden inside each sidebar link. Show it in a
   // fixed-position popover so the narrow sidebar never clips or reflows.

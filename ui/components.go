@@ -34,19 +34,28 @@ func Page(spec *Spec, baseURL, method, path, query string, state State) g.Node {
 		Language: "en",
 		Head: g.Group{
 			Meta(Name("htmx-config"), Content(`{"includeIndicatorStyles":false}`)),
-			Link(Rel("stylesheet"), Href("/static/style.css?v=10")),
+			Link(Rel("stylesheet"), Href("/static/style.css?v=11")),
 			Link(Rel("icon"), Href("data:,")),
-			Script(Src("/static/htmx.min.js"), Defer()),
-			Script(Src("/static/app.js?v=5"), Defer()),
+			Script(Src("/static/htmx.min.js?v=2.0.11"), Defer()),
+			Script(Src("/static/app.js?v=6"), Defer()),
 		},
 		Body: g.Group{
 			Div(ID("app"),
 				Data("name-header", nameHeader),
 				Data("secret-header", secretHeader),
+				A(Class("skip-link"), Href("#content"), g.Text("Skip to content")),
+				Div(ID("progress"), Class("progress"),
+					Div(Class("progress-bar"), Aria("hidden", "true")), Aria("hidden", "true")),
+				Div(ID("toast"), Class("toast"),
+					Role("alert"), Aria("live", "polite"), Hidden(""),
+					Span(Class("toast-message")),
+					Button(Class("toast-action"), Type("button"), Hidden(""), g.Text("Retry")),
+					Button(Class("toast-close"), Type("button"), Aria("label", "Dismiss"), g.Text("×")),
+				),
 				headerBar(spec, baseURL),
 				Div(Class("body"),
 					sidebarPanel(spec, query, method, path, state),
-					Main(ID("content"), Class("content"), ContentView(spec, method, path, state)),
+					Main(ID("content"), Class("content"), TabIndex("-1"), ContentView(spec, method, path, state)),
 				),
 				authDialog(nameHeader, secretHeader),
 			),
@@ -70,7 +79,7 @@ func ErrorPage(title, message string) g.Node {
 		Title:    title,
 		Language: "en",
 		Head: g.Group{
-			Link(Rel("stylesheet"), Href("/static/style.css?v=10")),
+			Link(Rel("stylesheet"), Href("/static/style.css?v=11")),
 			Link(Rel("icon"), Href("data:,")),
 		},
 		Body: g.Group{
@@ -204,12 +213,14 @@ func tagGroup(group TagGroup, open bool, persist, method, path, query string) g.
 func operationLink(op Operation, selectedMethod, selectedPath, query string) g.Node {
 	href := operationHref(op.Method, op.Path)
 	class := "operation-item"
-	if op.Method == strings.ToLower(selectedMethod) && op.Path == selectedPath {
+	active := op.Method == strings.ToLower(selectedMethod) && op.Path == selectedPath
+	if active {
 		class += " active"
 	}
 	nodes := []g.Node{
 		Class(class),
 		Href(href),
+		g.If(active, Aria("current", "page")),
 		g.Attr("hx-get", "/ui/op?"+operationQuery(op.Method, op.Path, query)),
 		g.Attr("hx-target", "#content"),
 		g.Attr("hx-swap", "innerHTML"),
@@ -255,7 +266,8 @@ func emptyState(message string) g.Node {
 
 func operationView(spec *Spec, op Operation, state State) g.Node {
 	children := []g.Node{
-		H2(Span(Class("method-badge method-"+op.Method), g.Text(strings.ToUpper(op.Method))), g.Text(" "), g.Text(op.Path)),
+		H2(ID("content-title"), TabIndex("-1"),
+			Span(Class("method-badge method-"+op.Method), g.Text(strings.ToUpper(op.Method))), g.Text(" "), g.Text(op.Path)),
 		Div(Class("op-meta"),
 			g.If(op.OperationID() != "", Span(Class("op-id"), g.Text(op.OperationID()))),
 			g.If(op.Deprecated(), Span(Class("tag-pill deprecated-pill"), g.Text("deprecated"))),
