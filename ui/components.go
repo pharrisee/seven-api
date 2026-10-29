@@ -45,7 +45,7 @@ func Page(spec *Spec, baseURL, method, path, query string, state State, outcome 
 			Link(Rel("stylesheet"), Href("/static/style.css?v=11")),
 			Link(Rel("icon"), Href("data:,")),
 			Script(Src("/static/htmx.min.js?v=4.0.0"), Defer()),
-			Script(Src("/static/app.js?v=6"), Defer()),
+			Script(Src("/static/app.js?v=7"), Defer()),
 		},
 		Body: g.Group{
 			Div(ID("app"),
