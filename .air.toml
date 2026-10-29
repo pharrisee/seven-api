@@ -4,7 +4,7 @@ tmp_dir = "tmp"
 [build]
 cmd = "go build -o ./tmp/main ."
 bin = "./tmp/main"
-args_bin = ["-addr", ":9999"]
+args_bin = ["-addr", "127.0.0.1:9999"]
 delay = 1000
 include_ext = ["go", "html", "css", "js"]
 exclude_dir = ["tmp", "vendor"]

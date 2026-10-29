@@ -59,6 +59,9 @@ retry screen; press **Retry** once the server is up. A failed reload keeps
 serving the last good spec and reports the error, rather than taking the viewer
 down.
 
+For live reload during development, `.air.toml` runs the server via
+[Air](https://github.com/air-verse/air) on `127.0.0.1:9999`.
+
 ## Features
 
 - Sidebar grouped by tag, with a server-side endpoint filter and deep links
