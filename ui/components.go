@@ -41,10 +41,10 @@ func Page(spec *Spec, baseURL, method, path, query string, state State, outcome 
 		Title:    spec.Title() + " · API Docs",
 		Language: "en",
 		Head: g.Group{
-			Meta(Name("htmx-config"), Content(`{"includeIndicatorStyles":false}`)),
+			Meta(Name("htmx-config"), Content(`{"includeIndicatorCSS":false}`)),
 			Link(Rel("stylesheet"), Href("/static/style.css?v=11")),
 			Link(Rel("icon"), Href("data:,")),
-			Script(Src("/static/htmx.min.js?v=2.0.11"), Defer()),
+			Script(Src("/static/htmx.min.js?v=4.0.0"), Defer()),
 			Script(Src("/static/app.js?v=6"), Defer()),
 		},
 		Body: g.Group{

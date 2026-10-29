@@ -115,11 +115,13 @@
 
   // Add the browser-local credentials to every htmx request. The server turns
   // X-SDTD-SESSION into a Cookie header for the upstream API.
-  document.addEventListener('htmx:configRequest', (event) => {
+  document.addEventListener('htmx:config:request', (event) => {
     const auth = readAuth();
-    if (auth.name) event.detail.headers[nameHeader] = auth.name;
-    if (auth.secret) event.detail.headers[secretHeader] = auth.secret;
-    if (auth.cookie) event.detail.headers['X-SDTD-SESSION'] = auth.cookie;
+    const headers = event?.detail?.ctx?.request?.headers;
+    if (!headers) return;
+    if (auth.name) headers[nameHeader] = auth.name;
+    if (auth.secret) headers[secretHeader] = auth.secret;
+    if (auth.cookie) headers['X-SDTD-SESSION'] = auth.cookie;
   });
 
   // Persist <details> state in the sdtd_ui cookie via the server. The toggle
@@ -182,11 +184,11 @@
   // ===== Request progress and global feedback =====
   const progress = document.getElementById('progress');
   let progressTimer = null;
-  document.addEventListener('htmx:beforeRequest', () => {
+  document.addEventListener('htmx:before:request', () => {
     clearTimeout(progressTimer);
     progress?.classList.add('active');
   });
-  document.addEventListener('htmx:afterRequest', () => {
+  document.addEventListener('htmx:finally:request', () => {
     progressTimer = setTimeout(() => progress?.classList.remove('active'), 150);
   });
 
@@ -221,28 +223,29 @@
       run();
     }
   });
-  document.addEventListener('htmx:afterSwap', hideToast);
-
-  function retryFromEvent(event) {
-    const cfg = event?.detail?.requestConfig;
-    if (!cfg || !window.htmx) return null;
-    return () => {
-      htmx.ajax(cfg.verb, cfg.path, { target: cfg.target, swap: cfg.swap });
-    };
-  }
-  document.addEventListener('htmx:responseError', (event) => {
-    const xhr = event.detail?.xhr;
-    showToast(`Request failed (${xhr?.status || '—'} ${xhr?.statusText || ''}).`, retryFromEvent(event));
-  });
-  document.addEventListener('htmx:sendError', () =>
-    showToast('Network error — is the server still running?', null));
-  document.addEventListener('htmx:timeout', () => showToast('Request timed out.', null));
-  document.addEventListener('htmx:swapError', (event) =>
-    showToast('Could not update the page.', retryFromEvent(event)));
 
   // ===== Focus management after content swaps =====
-  document.addEventListener('htmx:afterSwap', (event) => {
-    const target = event.detail?.target;
+  document.addEventListener('htmx:after:swap', hideToast);
+
+  function retryFromEvent(event) {
+    const ctx = event?.detail?.ctx;
+    if (!ctx || !window.htmx) return null;
+    const req = ctx.request;
+    if (!req || !req.method || !req.action) return null;
+    return () => {
+      htmx.ajax(req.method, req.action, { target: ctx.target, swap: ctx.swap });
+    };
+  }
+  document.addEventListener('htmx:response:error', (event) => {
+    const resp = event?.detail?.ctx?.response;
+    showToast(`Request failed (${resp?.status || '—'}).`, retryFromEvent(event));
+  });
+  document.addEventListener('htmx:error', () =>
+    showToast('Network error — is the server still running?', null));
+
+  // ===== Focus management after content swaps =====
+  document.addEventListener('htmx:after:swap', (event) => {
+    const target = event.detail?.ctx?.target || event.detail?.target;
     const id = typeof target === 'string' ? target.replace('#', '') : target?.id;
     if (id === 'content') {
       const heading = document.getElementById('content-title');
@@ -364,13 +367,13 @@
     if (operationLinkFrom(event)) hideOpPopover();
   });
 
-  document.addEventListener('htmx:beforeSwap', hideOpPopover);
+  document.addEventListener('htmx:before:swap', hideOpPopover);
 
   // The sidebar scrolls independently; a fixed popover would drift otherwise.
   window.addEventListener('scroll', hideOpPopover, true);
   window.addEventListener('resize', hideOpPopover);
 
-  document.addEventListener('htmx:afterSwap', updateAuthIndicator);
+  document.addEventListener('htmx:after:swap', updateAuthIndicator);
   document.addEventListener('DOMContentLoaded', updateAuthIndicator);
   if (document.readyState !== 'loading') updateAuthIndicator();
 })();
