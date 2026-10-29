@@ -39,8 +39,11 @@ go run . -api-url https://192.168.1.10:8080
 # Read the YAML from disk instead of a live server
 go run . -local-dir ../seven/api
 
-# Build a binary
+# Build a standalone binary (everything — HTML, CSS, JS, htmx — is embedded)
 go build -o server . && ./server
+
+# Check the build version (matches the git tag on release builds)
+./server -version
 ```
 
 Flags:
@@ -63,6 +66,19 @@ down.
 
 For live reload during development, `.air.toml` runs the server via
 [Air](https://github.com/air-verse/air) on `127.0.0.1:9999`.
+
+## Deployment
+
+The binary is fully self-contained — the viewer HTML, CSS and vendored htmx are
+compiled in via `//go:embed`, so there are no external assets or dependencies to
+ship. Just run the binary on its loopback port:
+
+```bash
+./server -addr 127.0.0.1:8080 -api-url http://localhost:9898
+```
+
+Pre-built static binaries for Linux, macOS and Windows (amd64 and arm64) are
+available from each [GitHub Release](https://github.com/pharrisee/seven-api/releases).
 
 ## Features
 
@@ -145,7 +161,7 @@ seconds to finish. Each request is logged to stderr as
 Push a semantic-version tag to cut a release:
 
 ```bash
-git tag v0.1.0
+git tag v0.2.0
 git push --tags
 ```
 
