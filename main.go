@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"embed"
 	"encoding/base64"
 	"encoding/json"
@@ -15,10 +16,13 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 	"unicode/utf8"
 
@@ -38,15 +42,17 @@ const (
 )
 
 var (
-	addr     = flag.String("addr", "127.0.0.1:8080", "server listen address")
-	apiURL   = flag.String("api-url", "http://localhost:9898", "7D2D server base URL")
-	localDir = flag.String("local-dir", "", "local directory for YAML files (overrides api-url)")
+	addr        = flag.String("addr", "127.0.0.1:8080", "server listen address")
+	apiURL      = flag.String("api-url", "http://localhost:9898", "7D2D server base URL")
+	localDir    = flag.String("local-dir", "", "local directory for YAML files (overrides api-url)")
+	showVersion = flag.Bool("version", false, "print the version and exit")
 )
 
 var (
-	specData map[string]any
-	specMu   sync.RWMutex
-	specErr  error
+	specData     map[string]any
+	specLoadedAt time.Time
+	specMu       sync.RWMutex
+	specErr      error
 )
 
 var errSpecUnavailable = errors.New("specification unavailable")
@@ -54,6 +60,11 @@ var errSpecUnavailable = errors.New("specification unavailable")
 func main() {
 	flag.Parse()
 	log.SetFlags(log.LstdFlags)
+
+	if *showVersion {
+		fmt.Println(buildVersion())
+		return
+	}
 
 	if loaded, err := reloadSpec(); err != nil {
 		log.Printf("warning: initial spec load failed: %v", err)
@@ -71,6 +82,7 @@ func main() {
 	mux.HandleFunc("/ui/tryit", handleUITryIt)
 	mux.HandleFunc("/ui/reload", handleUIReload)
 	mux.HandleFunc("/static/", handleStatic)
+	mux.HandleFunc("/healthz", handleHealthz)
 	mux.HandleFunc("/api/spec", handleSpec)
 	mux.HandleFunc("/api/reload", handleReload)
 	mux.HandleFunc("/api/config", handleConfig)
@@ -92,8 +104,86 @@ func main() {
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Fatalf("fatal: %v", err)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	serveErr := make(chan error, 1)
+	go func() { serveErr <- server.ListenAndServe() }()
+
+	select {
+	case err := <-serveErr:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("fatal: %v", err)
+		}
+	case <-ctx.Done():
+		log.Printf("shutting down")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Printf("shutdown: %v", err)
+		}
+		<-serveErr
+	}
+}
+
+// buildVersion reports the module version stamped into the binary, falling
+// back to the VCS revision (or "(devel)" for a plain `go build`).
+func buildVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "(devel)"
+	}
+	if info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+
+	var revision string
+	var modified bool
+	for _, setting := range info.Settings {
+		switch setting.Key {
+		case "vcs.revision":
+			revision = setting.Value
+		case "vcs.modified":
+			modified = setting.Value == "true"
+		}
+	}
+	if revision == "" {
+		return "(devel)"
+	}
+	if len(revision) > 12 {
+		revision = revision[:12]
+	}
+	if modified {
+		revision += "-dirty"
+	}
+	return revision
+}
+
+func handleHealthz(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	specMu.RLock()
+	loaded := specData != nil
+	loadedAt := specLoadedAt
+	specMu.RUnlock()
+
+	payload := map[string]any{
+		"status":     "ok",
+		"version":    buildVersion(),
+		"specLoaded": loaded,
+	}
+	if !loadedAt.IsZero() {
+		payload["specLoadedAt"] = loadedAt.Format(time.RFC3339)
+	}
+
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		log.Printf("encoding health: %v", err)
 	}
 }
 
@@ -796,6 +886,7 @@ func reloadSpec() (time.Time, error) {
 	loaded := time.Now()
 	specMu.Lock()
 	specData = spec
+	specLoadedAt = loaded
 	specErr = nil
 	specMu.Unlock()
 	return loaded, nil

@@ -50,6 +50,7 @@ Flags:
 | `-addr` | `127.0.0.1:8080` | Address to listen on |
 | `-api-url` | `http://localhost:9898` | 7D2D server base URL (spec source and proxy target) |
 | `-local-dir` | *(empty)* | Read YAML from this directory instead of the server |
+| `-version` | | Print the build version and exit |
 
 Remote API URLs must use HTTPS. Plain HTTP is allowed only for `localhost` and
 loopback IP addresses. The viewer binds to loopback by default; use
@@ -110,6 +111,7 @@ For live reload during development, `.air.toml` runs the server via
 | `/ui/tryit` | POST: send a try-it form through the proxy, return a result fragment |
 | `/ui/reload` | POST: re-fetch the specs; htmx gets `HX-Refresh: true` |
 | `/static/` | Embedded CSS, JS and htmx |
+| `/healthz` | Liveness JSON: status, version and whether a spec is loaded |
 | `/api/spec` | Merged OpenAPI spec as JSON |
 | `/api/reload` | POST: re-fetch and merge the specs |
 | `/api/config` | Configured base URL |

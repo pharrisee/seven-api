@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestValidateAPIURL(t *testing.T) {
@@ -119,12 +120,12 @@ func TestReloadKeepsLastGoodSpec(t *testing.T) {
 	defer func() { *localDir = oldDir }()
 
 	specMu.Lock()
-	oldData, oldErr := specData, specErr
-	specData, specErr = nil, nil
+	oldData, oldAt, oldErr := specData, specLoadedAt, specErr
+	specData, specLoadedAt, specErr = nil, time.Time{}, nil
 	specMu.Unlock()
 	defer func() {
 		specMu.Lock()
-		specData, specErr = oldData, oldErr
+		specData, specLoadedAt, specErr = oldData, oldAt, oldErr
 		specMu.Unlock()
 	}()
 
