@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -249,6 +250,75 @@ func TestHandleUITryItTranslatesAuth(t *testing.T) {
 		if !strings.Contains(html, want) {
 			t.Errorf("try-it response is missing %q", want)
 		}
+	}
+}
+
+func TestHandleUIOp(t *testing.T) {
+	useTestSpec(t, "http://127.0.0.1:1")
+
+	request := httptest.NewRequest(http.MethodGet, "/ui/op?method=GET&path=/api/player", nil)
+	recorder := httptest.NewRecorder()
+	handleUIOp(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+	body := recorder.Body.String()
+	for _, want := range []string{
+		`id="content-title"`,
+		`id="sidebar-content"`,
+		`hx-swap-oob`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("operation page is missing %q", want)
+		}
+	}
+}
+
+func TestHandleUIToggleSetsCookie(t *testing.T) {
+	useTestSpec(t, "http://127.0.0.1:1")
+
+	request := httptest.NewRequest(http.MethodPost, "/ui/toggle", strings.NewReader(`{"kind":"tag","name":"Commands","open":true}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handleUIToggle(recorder, request)
+
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNoContent)
+	}
+	if len(recorder.Result().Cookies()) == 0 {
+		t.Fatal("no cookie set")
+	}
+
+	var state ui.State
+	for _, cookie := range recorder.Result().Cookies() {
+		if cookie.Name != ui.StateCookie {
+			continue
+		}
+		raw, err := base64.RawURLEncoding.DecodeString(cookie.Value)
+		if err != nil {
+			t.Fatalf("decoding cookie: %v", err)
+		}
+		if err := json.Unmarshal(raw, &state); err != nil {
+			t.Fatalf("unmarshalling state: %v", err)
+		}
+	}
+	if !state.Tags["Commands"] {
+		t.Fatalf("Commands tag not persisted in cookie: %+v", state)
+	}
+}
+
+func TestHandleUIToggleRejectsCrossOrigin(t *testing.T) {
+	useTestSpec(t, "http://127.0.0.1:1")
+
+	request := httptest.NewRequest(http.MethodPost, "/ui/toggle", strings.NewReader(`{"kind":"tag","name":"Commands","open":true}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Origin", "http://evil.example")
+	recorder := httptest.NewRecorder()
+	handleUIToggle(recorder, request)
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusForbidden)
 	}
 }
 
