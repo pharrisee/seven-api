@@ -139,3 +139,17 @@ The same checks run in GitHub Actions (`.github/workflows/ci.yml`). The server
 shuts down gracefully on `SIGINT`/`SIGTERM`, giving in-flight requests up to ten
 seconds to finish. Each request is logged to stderr as
 `<remote> <method> <host> <path> -> <status> <bytes> in <duration>`.
+
+## Releases
+
+Push a semantic-version tag to cut a release:
+
+```bash
+git tag v0.1.0
+git push --tags
+```
+
+`.github/workflows/release.yml` builds static binaries for Linux and macOS
+(amd64 and arm64) and attaches them to a GitHub Release. The binary's `-version`
+output and `/healthz` report the tag they were built from.
+
