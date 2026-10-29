@@ -55,7 +55,9 @@ loopback IP addresses. The viewer binds to loopback by default; use
 `-addr :8080` only when you intend to expose it to a network you trust.
 
 If the 7D2D server is unreachable at startup the viewer still starts and shows a
-retry screen; press **Retry** once the server is up.
+retry screen; press **Retry** once the server is up. A failed reload keeps
+serving the last good spec and reports the error, rather than taking the viewer
+down.
 
 ## Features
 
@@ -74,7 +76,8 @@ retry screen; press **Retry** once the server is up.
 - **Try it out**: auto-generates a request body from the schema, provides inputs
   for path/query/header/cookie parameters, sends the request through the proxy,
   and shows status, timing, headers and pretty-printed JSON.
-- Reload button (⟳) re-pulls the specs from the server without restarting.
+- Reload button (⟳) re-pulls the specs from the server without restarting. If
+  the reload fails, the last good spec stays available.
 
 ## Security
 

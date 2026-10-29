@@ -391,9 +391,8 @@ func handleSpec(w http.ResponseWriter, r *http.Request) {
 
 	specMu.RLock()
 	snapshot := specData
-	err := specErr
 	specMu.RUnlock()
-	if err != nil || snapshot == nil {
+	if snapshot == nil {
 		http.Error(w, "specification unavailable", http.StatusServiceUnavailable)
 		return
 	}
@@ -778,7 +777,11 @@ func reloadSpec() (time.Time, error) {
 	spec, err := loadSpec()
 	if err != nil {
 		specMu.Lock()
-		specErr = err
+		// Keep serving the last good spec. The error is only surfaced when
+		// there is nothing usable to fall back to.
+		if specData == nil {
+			specErr = err
+		}
 		specMu.Unlock()
 		return time.Time{}, err
 	}
@@ -794,7 +797,7 @@ func reloadSpec() (time.Time, error) {
 func currentSpec() (*ui.Spec, error) {
 	specMu.RLock()
 	defer specMu.RUnlock()
-	if specErr != nil || specData == nil {
+	if specData == nil {
 		return nil, errSpecUnavailable
 	}
 	return ui.New(specData), nil
