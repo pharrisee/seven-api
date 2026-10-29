@@ -1,8 +1,11 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -28,6 +31,78 @@ func TestValidateAPIURL(t *testing.T) {
 				t.Fatalf("validateAPIURL(%q) error = %v, wantErr %t", tt.apiURL, err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestSameOrigin(t *testing.T) {
+	tests := []struct {
+		name      string
+		origin    string
+		fetchSite string
+		want      bool
+	}{
+		{name: "no origin header", want: true},
+		{name: "same origin", origin: "http://example.com", want: true},
+		{name: "cross origin", origin: "http://evil.example", want: false},
+		{name: "cross-site fetch", fetchSite: "cross-site", want: false},
+		{name: "invalid origin", origin: "://bad", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "http://example.com/x", nil)
+			request.Host = "example.com"
+			if tt.origin != "" {
+				request.Header.Set("Origin", tt.origin)
+			}
+			if tt.fetchSite != "" {
+				request.Header.Set("Sec-Fetch-Site", tt.fetchSite)
+			}
+			if got := sameOrigin(request); got != tt.want {
+				t.Fatalf("sameOrigin() = %t, want %t", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidSpecFile(t *testing.T) {
+	valid := []string{"openapi.yaml", "Commands.openapi.yaml", "a.b.yaml"}
+	for _, name := range valid {
+		if !validSpecFile(name) {
+			t.Errorf("validSpecFile(%q) = false, want true", name)
+		}
+	}
+
+	invalid := []string{"", ".", "..", "../x.yaml", "sub/x.yaml", `sub\x.yaml`, "/abs.yaml"}
+	for _, name := range invalid {
+		if validSpecFile(name) {
+			t.Errorf("validSpecFile(%q) = true, want false", name)
+		}
+	}
+}
+
+func TestSecurityHeaders(t *testing.T) {
+	handler := securityHeaders(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	csp := recorder.Header().Get("Content-Security-Policy")
+	if strings.Contains(csp, "unsafe-inline") {
+		t.Fatalf("CSP still allows inline styles: %q", csp)
+	}
+	for name, want := range map[string]string{
+		"X-Content-Type-Options":       "nosniff",
+		"X-Frame-Options":              "DENY",
+		"Referrer-Policy":              "no-referrer",
+		"Cross-Origin-Opener-Policy":   "same-origin",
+		"Cross-Origin-Resource-Policy": "same-origin",
+	} {
+		if got := recorder.Header().Get(name); got != want {
+			t.Errorf("%s = %q, want %q", name, got, want)
+		}
+	}
+	if got := recorder.Header().Get("Permissions-Policy"); got == "" {
+		t.Error("Permissions-Policy header is missing")
 	}
 }
 

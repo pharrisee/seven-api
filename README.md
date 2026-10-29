@@ -89,8 +89,10 @@ down.
 - Local spec `$ref`s must be bare filenames; files are opened with
   `os.OpenInRoot` and cannot escape `-local-dir`.
 - Spec documents are size-limited, empty documents are rejected, and responses
-  are sent with CSP, `X-Frame-Options`, `X-Content-Type-Options` and
-  `Referrer-Policy` headers.
+  are sent with a CSP that allows no inline styles, plus `X-Frame-Options`,
+  `X-Content-Type-Options`, `Referrer-Policy`, `Cross-Origin-Opener-Policy`,
+  `Cross-Origin-Resource-Policy` and `Permissions-Policy` headers.
+- JSON API responses are sent with `Cache-Control: no-store`.
 
 ## Endpoints
 
