@@ -147,6 +147,38 @@
     timers.set(element, timer);
   }, true);
 
+  // ===== Try it out helpers =====
+  // Swap the request-body example when the media type changes.
+  document.addEventListener('change', (event) => {
+    const select = event.target.closest('select[name="content_type"]');
+    if (!select) return;
+    const textarea = select.closest('form')?.querySelector('textarea[name="body"]');
+    const option = select.selectedOptions[0];
+    if (!textarea || !option) return;
+    textarea.value = option.dataset.example || '';
+  });
+
+  // Copy the response body or the equivalent cURL command.
+  document.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-copy-response], [data-copy-curl]');
+    if (!button) return;
+    const root = button.closest('.tryit-result') || document;
+    const selector = button.hasAttribute('data-copy-curl') ? 'pre.curl' : 'pre.example';
+    const pre = root.querySelector(selector);
+    if (!pre) return;
+
+    const label = button.textContent;
+    try {
+      await navigator.clipboard.writeText(pre.textContent);
+      button.textContent = 'Copied';
+    } catch {
+      button.textContent = 'Copy failed';
+    }
+    setTimeout(() => {
+      button.textContent = label;
+    }, 1200);
+  });
+
   // ===== Operation summary popover =====
   // .op-summary is visually hidden inside each sidebar link. Show it in a
   // fixed-position popover so the narrow sidebar never clips or reflows.

@@ -62,12 +62,50 @@ func TestTryItResultEscapesBody(t *testing.T) {
 		Status:     200,
 		StatusText: "200 OK",
 		Body:       `<script>alert(1)</script>`,
-	}))
+	}, `curl -X GET '<script>alert(2)</script>'`))
 	if strings.Contains(html, `<script>alert(1)</script>`) {
 		t.Fatalf("result body contains unescaped HTML")
 	}
 	if !strings.Contains(html, "&lt;script&gt;alert(1)&lt;/script&gt;") {
 		t.Fatalf("result body was not escaped")
+	}
+	if strings.Contains(html, `<script>alert(2)</script>`) {
+		t.Fatalf("cURL command contains unescaped HTML")
+	}
+	if !strings.Contains(html, `data-copy-response="1"`) || !strings.Contains(html, `data-copy-curl="1"`) {
+		t.Fatalf("copy controls are missing")
+	}
+}
+
+func TestTryItMediaTypeSelector(t *testing.T) {
+	spec := New(map[string]any{
+		"paths": map[string]any{
+			"/a": map[string]any{"post": map[string]any{
+				"requestBody": map[string]any{
+					"content": map[string]any{
+						"application/json": map[string]any{"example": map[string]any{"a": 1}},
+						"text/plain":       map[string]any{"example": "hello"},
+					},
+				},
+			}},
+		},
+	})
+	operations := spec.Operations()
+	if len(operations) != 1 {
+		t.Fatalf("got %d operations, want 1", len(operations))
+	}
+
+	html := render(t, tryItSection(spec, operations[0], nil, State{}))
+	for _, want := range []string{
+		`<select class="tryit-media" name="content_type">`,
+		`value="application/json"`,
+		`value="text/plain"`,
+		`data-example="hello"`,
+		`selected`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("rendered try-it form is missing %q:\n%s", want, html)
+		}
 	}
 }
 

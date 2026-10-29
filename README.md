@@ -80,7 +80,9 @@ For live reload during development, `.air.toml` runs the server via
   stored in `localStorage` and attached by the htmx request hook.
 - **Try it out**: auto-generates a request body from the schema, provides inputs
   for path/query/header/cookie parameters, sends the request through the proxy,
-  and shows status, timing, headers and pretty-printed JSON.
+  and shows status, timing, headers and pretty-printed JSON. Operations with
+  several request media types get a selector, and the result can be copied as
+  the response body or as an equivalent cURL command.
 - Reload button (⟳) re-pulls the specs from the server without restarting. If
   the reload fails, the last good spec stays available.
 

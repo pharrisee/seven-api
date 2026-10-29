@@ -19,6 +19,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -622,24 +623,24 @@ func handleUITryIt(w http.ResponseWriter, r *http.Request) {
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxProxyBody)
 	if err := r.ParseForm(); err != nil {
-		renderNode(w, http.StatusOK, ui.TryItResult(ui.ProxyResult{Error: "Invalid request."}))
+		renderNode(w, http.StatusOK, ui.TryItResult(ui.ProxyResult{Error: "Invalid request."}, ""))
 		return
 	}
 
 	method := strings.ToUpper(strings.TrimSpace(r.PostForm.Get("method")))
 	pathTemplate := strings.TrimSpace(r.PostForm.Get("path"))
 	if !supportedMethod(method) || pathTemplate == "" {
-		renderNode(w, http.StatusOK, ui.TryItResult(ui.ProxyResult{Error: "Invalid operation."}))
+		renderNode(w, http.StatusOK, ui.TryItResult(ui.ProxyResult{Error: "Invalid operation."}, ""))
 		return
 	}
 
 	spec, err := currentSpec()
 	if err != nil {
-		renderNode(w, http.StatusOK, ui.TryItResult(ui.ProxyResult{Error: "Specification unavailable."}))
+		renderNode(w, http.StatusOK, ui.TryItResult(ui.ProxyResult{Error: "Specification unavailable."}, ""))
 		return
 	}
 	if !spec.Allows(method, pathTemplate) {
-		renderNode(w, http.StatusOK, ui.TryItResult(ui.ProxyResult{Error: "Operation is not declared in the specification."}))
+		renderNode(w, http.StatusOK, ui.TryItResult(ui.ProxyResult{Error: "Operation is not declared in the specification."}, ""))
 		return
 	}
 
@@ -668,20 +669,20 @@ func handleUITryIt(w http.ResponseWriter, r *http.Request) {
 			query.Add(name, value)
 		case "header":
 			if !validHeaderName(name) || !validHeaderValue(value) {
-				renderNode(w, http.StatusOK, ui.TryItResult(ui.ProxyResult{Error: "Invalid header parameter."}))
+				renderNode(w, http.StatusOK, ui.TryItResult(ui.ProxyResult{Error: "Invalid header parameter."}, ""))
 				return
 			}
 			headers[name] = value
 		case "cookie":
 			if strings.ContainsAny(name, "=;\r\n") || strings.ContainsAny(value, ";\r\n") {
-				renderNode(w, http.StatusOK, ui.TryItResult(ui.ProxyResult{Error: "Invalid cookie parameter."}))
+				renderNode(w, http.StatusOK, ui.TryItResult(ui.ProxyResult{Error: "Invalid cookie parameter."}, ""))
 				return
 			}
 			cookies = append(cookies, name+"="+value)
 		}
 	}
 	if strings.Contains(finalPath, "{") {
-		renderNode(w, http.StatusOK, ui.TryItResult(ui.ProxyResult{Error: "Missing path parameter."}))
+		renderNode(w, http.StatusOK, ui.TryItResult(ui.ProxyResult{Error: "Missing path parameter."}, ""))
 		return
 	}
 
@@ -711,10 +712,39 @@ func handleUITryIt(w http.ResponseWriter, r *http.Request) {
 	result, err := doProxy(method, finalPath, query.Encode(), body, headers)
 	if err != nil {
 		log.Printf("try-it request failed: %v", err)
-		renderNode(w, http.StatusOK, ui.TryItResult(ui.ProxyResult{Error: "Upstream request failed. Check the server logs."}))
+		renderNode(w, http.StatusOK, ui.TryItResult(ui.ProxyResult{Error: "Upstream request failed. Check the server logs."}, ""))
 		return
 	}
-	renderNode(w, http.StatusOK, ui.TryItResult(result))
+	curl := curlCommand(method, strings.TrimRight(*apiURL, "/")+finalPath, query, headers, body)
+	renderNode(w, http.StatusOK, ui.TryItResult(result, curl))
+}
+
+// curlCommand renders the request the proxy just sent as a shell-safe cURL
+// command, including the auth headers the browser supplied.
+func curlCommand(method, rawURL string, query url.Values, headers map[string]string, body string) string {
+	target := rawURL
+	if encoded := query.Encode(); encoded != "" {
+		target += "?" + encoded
+	}
+
+	parts := []string{"curl", "-sS", "-X", method}
+	keys := make([]string, 0, len(headers))
+	for key := range headers {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		parts = append(parts, "-H", shellQuote(key+": "+headers[key]))
+	}
+	if body != "" {
+		parts = append(parts, "--data-raw", shellQuote(body))
+	}
+	parts = append(parts, shellQuote(target))
+	return strings.Join(parts, " ")
+}
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'"
 }
 
 func doProxy(method, path, query, body string, headers map[string]string) (ui.ProxyResult, error) {

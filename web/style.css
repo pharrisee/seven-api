@@ -919,6 +919,47 @@ summary:focus-visible {
   color: #64748b;
 }
 
+.tryit-loading {
+  font-size: 12px;
+  color: #93c5fd;
+}
+
+.tryit-media {
+  margin-left: 6px;
+  background: #0f172a;
+  border: 1px solid #374151;
+  border-radius: 4px;
+  color: #e5e7eb;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: #334155;
+  color: #93c5fd;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.btn-ghost:hover {
+  background: #1e293b;
+}
+
+.tryit-summary button:first-of-type {
+  margin-left: auto;
+}
+
+.tryit-curl {
+  margin-top: 10px;
+}
+
+.tryit-curl pre.curl {
+  max-height: 220px;
+  margin-top: 8px;
+}
+
 .tryit-result {
   margin-top: 14px;
   border-top: 1px solid #334155;

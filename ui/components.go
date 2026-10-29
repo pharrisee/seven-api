@@ -34,10 +34,10 @@ func Page(spec *Spec, baseURL, method, path, query string, state State) g.Node {
 		Language: "en",
 		Head: g.Group{
 			Meta(Name("htmx-config"), Content(`{"includeIndicatorStyles":false}`)),
-			Link(Rel("stylesheet"), Href("/static/style.css?v=9")),
+			Link(Rel("stylesheet"), Href("/static/style.css?v=10")),
 			Link(Rel("icon"), Href("data:,")),
 			Script(Src("/static/htmx.min.js"), Defer()),
-			Script(Src("/static/app.js?v=4"), Defer()),
+			Script(Src("/static/app.js?v=5"), Defer()),
 		},
 		Body: g.Group{
 			Div(ID("app"),
@@ -70,7 +70,7 @@ func ErrorPage(title, message string) g.Node {
 		Title:    title,
 		Language: "en",
 		Head: g.Group{
-			Link(Rel("stylesheet"), Href("/static/style.css?v=9")),
+			Link(Rel("stylesheet"), Href("/static/style.css?v=10")),
 			Link(Rel("icon"), Href("data:,")),
 		},
 		Body: g.Group{
@@ -470,36 +470,48 @@ func tryItSection(spec *Spec, op Operation, params []Parameter, state State) g.N
 	if requestBody := spec.RequestBody(op); requestBody != nil {
 		content := asMap(requestBody["content"])
 		if len(content) > 0 {
-			mediaType := sortedKeys(content)[0]
-			media := asMap(content[mediaType])
-			example, hasExample := media["example"]
-			if !hasExample {
-				example = spec.ExampleFromSchema(media["schema"])
-			}
-			bodyText := ""
-			if example != nil {
-				if text, ok := example.(string); ok {
-					bodyText = text
-				} else {
-					bodyText = prettyJSON(example)
+			mediaTypes := sortedKeys(content)
+			selected := mediaTypes[0]
+			required := asBool(requestBody["required"])
+
+			if len(mediaTypes) > 1 {
+				options := make([]g.Node, 0, len(mediaTypes))
+				for _, mediaType := range mediaTypes {
+					options = append(options, Option(
+						Value(mediaType),
+						g.If(mediaType == selected, Selected()),
+						Data("example", mediaExample(spec, asMap(content[mediaType]))),
+						g.Text(mediaType),
+					))
 				}
+				children = append(children,
+					Label(Class("tryit-body-label"),
+						g.Text("Request body "),
+						Select(Class("tryit-media"), Name("content_type"), g.Group(options)),
+						g.If(required, Span(Class("prop-required"), g.Text("*"))),
+					),
+					Textarea(Class("tryit-body"), Name("body"), g.Attr("spellcheck", "false"),
+						Placeholder("request body"), g.Text(mediaExample(spec, asMap(content[selected])))),
+				)
+			} else {
+				children = append(children,
+					Input(Type("hidden"), Name("content_type"), Value(selected)),
+					Label(Class("tryit-body-label"),
+						g.Text("Request body "),
+						Span(Class("param-location"), g.Text(selected)),
+						g.If(required, Span(Class("prop-required"), g.Text("*"))),
+					),
+					Textarea(Class("tryit-body"), Name("body"), g.Attr("spellcheck", "false"),
+						Placeholder("request body"), g.Text(mediaExample(spec, asMap(content[selected])))),
+				)
 			}
-			children = append(children,
-				Input(Type("hidden"), Name("content_type"), Value(mediaType)),
-				Label(Class("tryit-body-label"),
-					g.Text("Request body "),
-					Span(Class("param-location"), g.Text(mediaType)),
-					g.If(asBool(requestBody["required"]), Span(Class("prop-required"), g.Text("*"))),
-				),
-				Textarea(Class("tryit-body"), Name("body"), g.Attr("spellcheck", "false"),
-					Placeholder("request body"), g.Text(bodyText)),
-			)
 		}
 	}
 
 	children = append(children,
 		Div(Class("tryit-actions"),
 			Button(Class("btn btn-primary"), Type("submit"), g.Text("Send request")),
+			Span(Class("tryit-loading htmx-indicator"), g.Text("Sending…")),
 			Span(Class("tryit-hint"), Data("tryit-hint", "1"),
 				g.Text("No authentication configured (use 🔑 to add)")),
 		),
@@ -517,18 +529,29 @@ func tryItSection(spec *Spec, op Operation, params []Parameter, state State) g.N
 	)
 }
 
-// TryItResult renders the outcome of a proxied try-it request.
-func TryItResult(result ProxyResult) g.Node {
+// TryItResult renders the outcome of a proxied try-it request. The optional
+// curl command is rendered in a copyable block.
+func TryItResult(result ProxyResult, curl string) g.Node {
 	if result.Error != "" {
 		return Div(Class("tryit-error"), g.Text(result.Error))
 	}
 
+	summary := []g.Node{
+		Span(Class("tryit-status "+tryItStatusClass(result.Status)),
+			g.Text(fmt.Sprintf("%d %s", result.Status, result.StatusText))),
+		Span(Class("tryit-meta"), g.Text(fmt.Sprintf("%d ms", result.DurationMs))),
+	}
+	if !result.Binary {
+		summary = append(summary, Button(Class("btn btn-ghost tryit-copy"), Type("button"),
+			Data("copy-response", "1"), g.Text("Copy response")))
+	}
+	if curl != "" {
+		summary = append(summary, Button(Class("btn btn-ghost tryit-copy"), Type("button"),
+			Data("copy-curl", "1"), g.Text("Copy cURL")))
+	}
+
 	nodes := []g.Node{
-		Div(Class("tryit-summary"),
-			Span(Class("tryit-status "+tryItStatusClass(result.Status)),
-				g.Text(fmt.Sprintf("%d %s", result.Status, result.StatusText))),
-			Span(Class("tryit-meta"), g.Text(fmt.Sprintf("%d ms", result.DurationMs))),
-		),
+		Div(Class("tryit-summary"), g.Group(summary)),
 	}
 
 	if len(result.Headers) > 0 {
@@ -567,7 +590,31 @@ func TryItResult(result ProxyResult) g.Node {
 		nodes = append(nodes, Pre(Class("example"), g.Text(body)))
 	}
 
+	if curl != "" {
+		nodes = append(nodes, Details(Class("collapsible tryit-curl"),
+			Summary(g.Text("cURL")),
+			Div(Class("schema-details"),
+				Pre(Class("example curl"), g.Text(curl)),
+			),
+		))
+	}
+
 	return g.Group(nodes)
+}
+
+// mediaExample returns the request body example for one media type.
+func mediaExample(spec *Spec, media map[string]any) string {
+	example, hasExample := media["example"]
+	if !hasExample {
+		example = spec.ExampleFromSchema(media["schema"])
+	}
+	if example == nil {
+		return ""
+	}
+	if text, ok := example.(string); ok {
+		return text
+	}
+	return prettyJSON(example)
 }
 
 func tryItStatusClass(status int) string {
