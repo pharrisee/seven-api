@@ -26,8 +26,16 @@ type ProxyResult struct {
 	Error      string              `json:"error,omitempty"`
 }
 
-// Page renders the complete viewer document.
-func Page(spec *Spec, baseURL, method, path, query string, state State) g.Node {
+// TryItOutcome carries the rendered result of a try-it request so the operation
+// view can include it in the no-JavaScript fallback.
+type TryItOutcome struct {
+	Result ProxyResult
+	Curl   string
+}
+
+// Page renders the complete viewer document. When outcome is non-nil the
+// operation's try-it result is rendered inline so the page works without JS.
+func Page(spec *Spec, baseURL, method, path, query string, state State, outcome *TryItOutcome) g.Node {
 	nameHeader, secretHeader := spec.AuthHeaders()
 	return components.HTML5(components.HTML5Props{
 		Title:    spec.Title() + " · API Docs",
@@ -55,7 +63,7 @@ func Page(spec *Spec, baseURL, method, path, query string, state State) g.Node {
 				headerBar(spec, baseURL),
 				Div(Class("body"),
 					sidebarPanel(spec, query, method, path, state),
-					Main(ID("content"), Class("content"), TabIndex("-1"), ContentView(spec, method, path, state)),
+					Main(ID("content"), Class("content"), TabIndex("-1"), ContentView(spec, method, path, state, outcome)),
 				),
 				authDialog(nameHeader, secretHeader),
 			),
@@ -248,8 +256,9 @@ func operationQuery(method, path, query string) string {
 	return values.Encode()
 }
 
-// ContentView renders the main panel for the selected operation.
-func ContentView(spec *Spec, method, path string, state State) g.Node {
+// ContentView renders the main panel for the selected operation, optionally
+// including a pre-computed try-it outcome for the no-JavaScript fallback.
+func ContentView(spec *Spec, method, path string, state State, outcome *TryItOutcome) g.Node {
 	if method == "" || path == "" {
 		return emptyState("Select an endpoint from the sidebar.")
 	}
@@ -257,14 +266,14 @@ func ContentView(spec *Spec, method, path string, state State) g.Node {
 	if !ok {
 		return emptyState("No operation found.")
 	}
-	return operationView(spec, op, state)
+	return operationView(spec, op, state, outcome)
 }
 
 func emptyState(message string) g.Node {
 	return Div(Class("content-placeholder"), P(g.Text(message)))
 }
 
-func operationView(spec *Spec, op Operation, state State) g.Node {
+func operationView(spec *Spec, op Operation, state State, outcome *TryItOutcome) g.Node {
 	children := []g.Node{
 		H2(ID("content-title"), TabIndex("-1"),
 			Span(Class("method-badge method-"+op.Method), g.Text(strings.ToUpper(op.Method))), g.Text(" "), g.Text(op.Path)),
@@ -294,7 +303,7 @@ func operationView(spec *Spec, op Operation, state State) g.Node {
 	if requestBody := spec.RequestBody(op); requestBody != nil {
 		children = append(children, requestBodySection(spec, requestBody, state))
 	}
-	children = append(children, tryItSection(spec, op, params, state))
+	children = append(children, tryItSection(spec, op, params, state, outcome))
 	if responses := spec.Responses(op); len(responses) > 0 {
 		children = append(children, responsesSection(spec, op, state))
 	}
@@ -439,7 +448,7 @@ func securitySection(spec *Spec, security []any, state State) g.Node {
 	return section("security", "Security", state, Div(Class("security-list"), g.Group(badges)))
 }
 
-func tryItSection(spec *Spec, op Operation, params []Parameter, state State) g.Node {
+func tryItSection(spec *Spec, op Operation, params []Parameter, state State, outcome *TryItOutcome) g.Node {
 	children := []g.Node{
 		Input(Type("hidden"), Name("method"), Value(strings.ToUpper(op.Method))),
 		Input(Type("hidden"), Name("path"), Value(op.Path)),
@@ -486,13 +495,24 @@ func tryItSection(spec *Spec, op Operation, params []Parameter, state State) g.N
 			selected := mediaTypes[0]
 			required := asBool(requestBody["required"])
 
+			// safeBodyExample returns a non-destructive default body for
+			// operations whose spec example could mutate state (e.g. 7D2D's
+			// /api/command, whose example runs "settime").
+			safeBody := safeBodyExample(op.OperationID())
+			exampleFor := func(mediaType string) string {
+				if safeBody != "" {
+					return safeBody
+				}
+				return mediaExample(spec, asMap(content[mediaType]))
+			}
+
 			if len(mediaTypes) > 1 {
 				options := make([]g.Node, 0, len(mediaTypes))
 				for _, mediaType := range mediaTypes {
 					options = append(options, Option(
 						Value(mediaType),
 						g.If(mediaType == selected, Selected()),
-						Data("example", mediaExample(spec, asMap(content[mediaType]))),
+						Data("example", exampleFor(mediaType)),
 						g.Text(mediaType),
 					))
 				}
@@ -503,7 +523,7 @@ func tryItSection(spec *Spec, op Operation, params []Parameter, state State) g.N
 						g.If(required, Span(Class("prop-required"), g.Text("*"))),
 					),
 					Textarea(Class("tryit-body"), Name("body"), g.Attr("spellcheck", "false"),
-						Placeholder("request body"), g.Text(mediaExample(spec, asMap(content[selected])))),
+						Placeholder("request body"), g.Text(exampleFor(selected))),
 				)
 			} else {
 				children = append(children,
@@ -514,7 +534,7 @@ func tryItSection(spec *Spec, op Operation, params []Parameter, state State) g.N
 						g.If(required, Span(Class("prop-required"), g.Text("*"))),
 					),
 					Textarea(Class("tryit-body"), Name("body"), g.Attr("spellcheck", "false"),
-						Placeholder("request body"), g.Text(mediaExample(spec, asMap(content[selected])))),
+						Placeholder("request body"), g.Text(exampleFor(selected))),
 				)
 			}
 		}
@@ -527,11 +547,14 @@ func tryItSection(spec *Spec, op Operation, params []Parameter, state State) g.N
 			Span(Class("tryit-hint"), Data("tryit-hint", "1"),
 				g.Text("No authentication configured (use 🔑 to add)")),
 		),
-		Div(ID("tryit-result"), Class("tryit-result"), Aria("live", "polite")),
+		Div(ID("tryit-result"), Class("tryit-result"), Aria("live", "polite"),
+			resultTryIt(outcome),
+		),
 	)
 
 	return section("tryit", "Try it out", state,
 		Form(Class("tryit-form"),
+			Method("post"), Action("/ui/tryit"),
 			g.Attr("hx-post", "/ui/tryit"),
 			g.Attr("hx-target", "#tryit-result"),
 			g.Attr("hx-swap", "innerHTML"),
@@ -627,6 +650,28 @@ func mediaExample(spec *Spec, media map[string]any) string {
 		return text
 	}
 	return prettyJSON(example)
+}
+
+// safeBodyExamples maps an operationId to a non-destructive request body that
+// is used as the try-it default instead of the spec's example when that example
+// would mutate server state (e.g. 7D2D's "settime" command). Values must be
+// valid for the operation's primary request content type.
+var safeBodyExamples = map[string]string{
+	"command.post": `{"command":"help * player","format":"Simple"}`,
+}
+
+// safeBodyExample returns a safe default body for the operation, if any.
+func safeBodyExample(operationID string) string {
+	return safeBodyExamples[operationID]
+}
+
+// resultTryIt renders the try-it outcome for the result container. It guards
+// against a nil outcome so the fragment-swap path does not dereference one.
+func resultTryIt(outcome *TryItOutcome) g.Node {
+	if outcome == nil {
+		return g.Text("")
+	}
+	return TryItResult(outcome.Result, outcome.Curl)
 }
 
 func tryItStatusClass(status int) string {

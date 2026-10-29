@@ -43,7 +43,7 @@ func TestPageEscapesSpecValues(t *testing.T) {
 		},
 	})
 
-	html := render(t, Page(spec, "http://localhost:9898", "GET", "/x", "", State{}))
+	html := render(t, Page(spec, "http://localhost:9898", "GET", "/x", "", State{}, nil))
 	for _, raw := range []string{`<script>alert(1)</script>`, `<img src=x onerror=alert(1)>`, `<img src=x onerror="window.__xss=1">`} {
 		if strings.Contains(html, raw) {
 			t.Fatalf("page contains unescaped spec value %q", raw)
@@ -77,6 +77,37 @@ func TestTryItResultEscapesBody(t *testing.T) {
 	}
 }
 
+func TestTryItSafeCommandExample(t *testing.T) {
+	spec := New(map[string]any{
+		"paths": map[string]any{
+			"/api/command": map[string]any{"post": map[string]any{
+				"operationId": "command.post",
+				"requestBody": map[string]any{"content": map[string]any{
+					"application/json": map[string]any{"schema": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"command": map[string]any{"type": "string", "example": "settime 1 13 37"},
+						},
+					}},
+				}},
+				"responses": map[string]any{"200": map[string]any{"description": "ok"}},
+			}},
+		},
+	})
+	operations := spec.Operations()
+	if len(operations) != 1 {
+		t.Fatalf("got %d operations, want 1", len(operations))
+	}
+
+	html := render(t, tryItSection(spec, operations[0], nil, State{}, nil))
+	if !strings.Contains(html, "help * player") {
+		t.Errorf("safe command example not used:\n%s", html)
+	}
+	if strings.Contains(html, "settime") {
+		t.Errorf("destructive example leaked into the body:\n%s", html)
+	}
+}
+
 func TestTryItMediaTypeSelector(t *testing.T) {
 	spec := New(map[string]any{
 		"paths": map[string]any{
@@ -95,7 +126,7 @@ func TestTryItMediaTypeSelector(t *testing.T) {
 		t.Fatalf("got %d operations, want 1", len(operations))
 	}
 
-	html := render(t, tryItSection(spec, operations[0], nil, State{}))
+	html := render(t, tryItSection(spec, operations[0], nil, State{}, nil))
 	for _, want := range []string{
 		`<select class="tryit-media" name="content_type">`,
 		`value="application/json"`,

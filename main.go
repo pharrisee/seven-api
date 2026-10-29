@@ -279,7 +279,7 @@ func renderPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	renderNode(w, http.StatusOK, ui.Page(spec, *apiURL, method, path, query, state))
+	renderNode(w, http.StatusOK, ui.Page(spec, *apiURL, method, path, query, state, nil))
 }
 
 func handleUIOp(w http.ResponseWriter, r *http.Request) {
@@ -308,7 +308,7 @@ func handleUIOp(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	content := ui.ContentView(spec, method, path, state)
+	content := ui.ContentView(spec, method, path, state, nil)
 	sidebar := ui.SidebarContent(spec, query, method, path, state, true)
 	renderNode(w, http.StatusOK, g.Group{content, sidebar})
 }
@@ -748,6 +748,14 @@ func handleUITryIt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	curl := curlCommand(method, strings.TrimRight(*apiURL, "/")+finalPath, query, headers, body)
+	if r.Header.Get("HX-Request") != "1" {
+		// No-JavaScript fallback: render the full operation page with the
+		// result already in the try-it panel.
+		state := ui.ReadState(r)
+		outcome := &ui.TryItOutcome{Result: result, Curl: curl}
+		renderNode(w, http.StatusOK, ui.Page(spec, *apiURL, method, pathTemplate, "", state, outcome))
+		return
+	}
 	renderNode(w, http.StatusOK, ui.TryItResult(result, curl))
 }
 
