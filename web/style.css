@@ -30,6 +30,31 @@ body {
   display: none !important;
 }
 
+/* ===== Selection and focus ===== */
+#content,
+dialog {
+  user-select: text;
+}
+
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+/* htmx's injected indicator styles are disabled via the htmx-config meta tag
+   so the CSP can stay free of 'unsafe-inline'; these are the equivalents. */
+.htmx-indicator {
+  opacity: 0;
+  transition: opacity 200ms ease-in;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  opacity: 1;
+}
+
 /* ===== Loading / Error ===== */
 .loading-screen {
   position: fixed;

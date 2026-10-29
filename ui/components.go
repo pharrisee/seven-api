@@ -33,10 +33,11 @@ func Page(spec *Spec, baseURL, method, path, query string, state State) g.Node {
 		Title:    spec.Title() + " · API Docs",
 		Language: "en",
 		Head: g.Group{
-			Link(Rel("stylesheet"), Href("/static/style.css?v=8")),
+			Meta(Name("htmx-config"), Content(`{"includeIndicatorStyles":false}`)),
+			Link(Rel("stylesheet"), Href("/static/style.css?v=9")),
 			Link(Rel("icon"), Href("data:,")),
 			Script(Src("/static/htmx.min.js"), Defer()),
-			Script(Src("/static/app.js?v=3"), Defer()),
+			Script(Src("/static/app.js?v=4"), Defer()),
 		},
 		Body: g.Group{
 			Div(ID("app"),
@@ -69,7 +70,7 @@ func ErrorPage(title, message string) g.Node {
 		Title:    title,
 		Language: "en",
 		Head: g.Group{
-			Link(Rel("stylesheet"), Href("/static/style.css?v=8")),
+			Link(Rel("stylesheet"), Href("/static/style.css?v=9")),
 			Link(Rel("icon"), Href("data:,")),
 		},
 		Body: g.Group{
@@ -111,6 +112,7 @@ func sidebarPanel(spec *Spec, query, method, path string, state State) g.Node {
 	return Aside(Class("sidebar"),
 		Form(Class("search-box"), Method("get"), Action("/"), g.Attr("role", "search"),
 			Input(Type("search"), ID("search-input"), Name("q"), Value(query),
+				Aria("label", "Filter endpoints"),
 				Placeholder("Filter endpoints…"), g.Attr("autocomplete", "off"),
 				g.Attr("hx-get", "/ui/sidebar"),
 				g.Attr("hx-trigger", "input changed delay:150ms, search"),
