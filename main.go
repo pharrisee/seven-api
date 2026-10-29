@@ -3,8 +3,10 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"embed"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -453,8 +455,20 @@ func handleStatic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Pragma", "no-cache")
+	etag := `"` + contentETag(data) + `"`
+	if match := r.Header.Get("If-None-Match"); match != "" && etagMatches(match, etag) {
+		w.Header().Set("ETag", etag)
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	w.Header().Set("ETag", etag)
+	if r.URL.Query().Get("v") != "" {
+		// Versioned URLs are immutable; cache for a year without revalidating.
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	} else {
+		// Unversioned assets (e.g. htmx) may change; revalidate every time.
+		w.Header().Set("Cache-Control", "no-cache")
+	}
 	switch {
 	case strings.HasSuffix(clean, ".css"):
 		w.Header().Set("Content-Type", "text/css")
@@ -473,6 +487,24 @@ func handleStatic(w http.ResponseWriter, r *http.Request) {
 	if _, err := w.Write(data); err != nil {
 		log.Printf("writing static asset: %v", err)
 	}
+}
+
+// contentETag returns a short hex digest of the asset bytes for ETag matching.
+func contentETag(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:8])
+}
+
+// etagMatches reports whether any of the validator values in If-None-Match
+// (which may contain a star or a comma-separated list) matches the current ETag.
+func etagMatches(header, etag string) bool {
+	for _, part := range strings.Split(header, ",") {
+		part = strings.TrimSpace(part)
+		if part == "*" || part == etag {
+			return true
+		}
+	}
+	return false
 }
 
 // --- JSON API ---

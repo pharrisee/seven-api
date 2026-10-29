@@ -322,6 +322,43 @@ func TestBuildVersion(t *testing.T) {
 	}
 }
 
+func TestStaticCaching(t *testing.T) {
+	serve := func(path string, headers map[string]string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		for k, v := range headers {
+			req.Header.Set(k, v)
+		}
+		handleStatic(rec, req)
+		return rec
+	}
+
+	first := serve("/static/style.css?v=11", nil)
+	if first.Code != http.StatusOK {
+		t.Fatalf("first request: status = %d, want %d", first.Code, http.StatusOK)
+	}
+	etag := first.Header().Get("ETag")
+	if etag == "" {
+		t.Fatal("missing ETag on first request")
+	}
+	if cc := first.Header().Get("Cache-Control"); !strings.Contains(cc, "immutable") {
+		t.Fatalf("versioned asset Cache-Control = %q, want immutable", cc)
+	}
+
+	cached := serve("/static/style.css?v=11", map[string]string{"If-None-Match": etag})
+	if cached.Code != http.StatusNotModified {
+		t.Fatalf("second request: status = %d, want %d", cached.Code, http.StatusNotModified)
+	}
+	if cached.Body.Len() != 0 {
+		t.Fatalf("304 response should have an empty body, got %d bytes", cached.Body.Len())
+	}
+
+	unversioned := serve("/static/app.js", nil)
+	if cc := unversioned.Header().Get("Cache-Control"); !strings.Contains(cc, "no-cache") {
+		t.Fatalf("unversioned asset Cache-Control = %q, want no-cache", cc)
+	}
+}
+
 func TestReloadKeepsLastGoodSpec(t *testing.T) {
 	dir := t.TempDir()
 	specPath := filepath.Join(dir, "openapi.yaml")
