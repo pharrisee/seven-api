@@ -149,7 +149,8 @@ git tag v0.1.0
 git push --tags
 ```
 
-`.github/workflows/release.yml` builds static binaries for Linux and macOS
-(amd64 and arm64) and attaches them to a GitHub Release. The binary's `-version`
-output and `/healthz` report the tag they were built from.
+`.github/workflows/release.yml` builds static binaries for `linux`/`darwin`/`windows`
+(amd64 and arm64; Windows binaries get a `.exe` suffix) and attaches them to a
+GitHub Release. The binary's `-version` output and `/healthz` report the tag
+they were built from.
 

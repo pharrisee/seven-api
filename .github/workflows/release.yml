@@ -21,9 +21,11 @@ jobs:
       - name: Build binaries
         run: |
           mkdir -p dist
-          for os in linux darwin; do
+          for os in linux darwin windows; do
             for arch in amd64 arm64; do
-              GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/seven-api-$os-$arch .
+              ext=""
+              [ "$os" = windows ] && ext=".exe"
+              GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/seven-api-$os-$arch$ext .
             done
           done
           ls -l dist
