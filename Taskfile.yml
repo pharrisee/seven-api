@@ -25,6 +25,14 @@ tasks:
     cmds:
       - go test ./...
 
+  coverage:
+    desc: Run tests and print detailed function coverage
+    aliases: [cov]
+    cmds:
+      - mkdir -p tmp
+      - go test -coverprofile=/tmp/coverage.out ./...
+      - go tool cover -func=/tmp/coverage.out
+
   race:
     desc: Run the unit tests with the race detector
     cmds:
