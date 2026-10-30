@@ -12,7 +12,7 @@ assets and no code generators.
 ## How it works
 
 1. On startup the server fetches `openapi.yaml` and every `*.openapi.yaml` it
-   references from a running 7D2D server (default `http://localhost:9898`), or
+   references from a running 7D2D server (default `http://localhost:8080`), or
    reads them from a local directory.
 2. It merges the per-API documents into a single spec:
    - resolves the `./File.openapi.yaml#/paths/...` references in `paths`
@@ -30,7 +30,7 @@ server — no stale downloaded copies.
 ## Usage
 
 ```bash
-# Pull from http://localhost:9898 and listen on 127.0.0.1:8080 (defaults)
+# Pull from the 7D2D server at http://localhost:8080 and listen on 127.0.0.1:9999 (defaults)
 go run .
 
 # Point at another server
@@ -50,14 +50,14 @@ Flags:
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `-addr` | `127.0.0.1:8080` | Address to listen on |
-| `-api-url` | `http://localhost:9898` | 7D2D server base URL (spec source and proxy target) |
+| `-addr` | `127.0.0.1:9999` | Address to listen on |
+| `-api-url` | `http://localhost:8080` | 7D2D server base URL (spec source and proxy target) |
 | `-local-dir` | *(empty)* | Read YAML from this directory instead of the server |
 | `-version` | | Print the build version and exit |
 
 Remote API URLs must use HTTPS. Plain HTTP is allowed only for `localhost` and
 loopback IP addresses. The viewer binds to loopback by default; use
-`-addr :8080` only when you intend to expose it to a network you trust.
+`-addr :9999` only when you intend to expose it to a network you trust.
 
 If the 7D2D server is unreachable at startup the viewer still starts and shows a
 retry screen; press **Retry** once the server is up. A failed reload keeps
@@ -74,7 +74,7 @@ compiled in via `//go:embed`, so there are no external assets or dependencies to
 ship. Just run the binary on its loopback port:
 
 ```bash
-./server -addr 127.0.0.1:8080 -api-url http://localhost:9898
+./server -addr 127.0.0.1:9999 -api-url http://localhost:8080
 ```
 
 Pre-built static binaries for Linux, macOS and Windows (amd64 and arm64) are
@@ -107,7 +107,7 @@ available from each [GitHub Release](https://github.com/pharrisee/seven-api/rele
 
 ## Security
 
-- The listener defaults to `127.0.0.1:8080`.
+- The listener defaults to `127.0.0.1:9999`.
 - Mutating UI/API endpoints reject cross-origin requests and `/api/proxy`
   requires `Content-Type: application/json`.
 - The proxy only allows methods and paths declared in the loaded spec, and only
@@ -145,10 +145,10 @@ Tasks are defined in `Taskfile.yml` and run with
 
 ```bash
 task build      # build ./server
-task run        # run on 127.0.0.1:8080
+task run        # run on 127.0.0.1:9999
 task check      # go test -race, go vet, staticcheck
 task sec        # govulncheck, gosec
-task smoke      # smoke-test a running viewer (default http://127.0.0.1:8080)
+task smoke      # smoke-test a running viewer (default http://127.0.0.1:9999)
 ```
 
 The same checks run in GitHub Actions (`.github/workflows/ci.yml`). The server
@@ -169,4 +169,3 @@ git push --tags
 (amd64 and arm64; Windows binaries get a `.exe` suffix) and attaches them to a
 GitHub Release. The binary's `-version` output and `/healthz` report the tag
 they were built from.
-

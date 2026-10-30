@@ -2,7 +2,7 @@ version: "3"
 
 vars:
   BINARY: server
-  ADDR: 127.0.0.1:8080
+  ADDR: 127.0.0.1:9999
 
 tasks:
   default:
@@ -73,6 +73,6 @@ tasks:
       - rm -rf tmp
 
   smoke:
-    desc: Smoke-test a running viewer against http://127.0.0.1:8080
+    desc: Smoke-test a running viewer against http://127.0.0.1:9999
     cmds:
       - ./scripts/smoke.sh {{.ADDR}}

@@ -45,8 +45,8 @@ const (
 )
 
 var (
-	addr        = flag.String("addr", "127.0.0.1:8080", "server listen address")
-	apiURL      = flag.String("api-url", "http://localhost:9898", "7D2D server base URL")
+	addr        = flag.String("addr", "127.0.0.1:9999", "server listen address")
+	apiURL      = flag.String("api-url", "http://localhost:8080", "7D2D server base URL")
 	localDir    = flag.String("local-dir", "", "local directory for YAML files (overrides api-url)")
 	showVersion = flag.Bool("version", false, "print the version and exit")
 )

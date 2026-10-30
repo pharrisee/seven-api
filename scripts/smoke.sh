@@ -2,14 +2,14 @@
 # Smoke test for a running viewer instance. Pass the base URL, e.g.:
 #
 #   task run        # in one terminal
-#   scripts/smoke.sh http://127.0.0.1:8080
+#   scripts/smoke.sh http://127.0.0.1:9999
 #
 set -euo pipefail
 
 if [ "$#" -ge 1 ]; then
 	base="$1"
 else
-	base="http://127.0.0.1:8080"
+	base="http://127.0.0.1:9999"
 fi
 
 curl -fsS "$base/healthz" >/dev/null
